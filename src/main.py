@@ -112,8 +112,8 @@ def generate_summary(repos):
         + "\n\n".join(repo_lines)
         + "\n\n"
         "輸出格式規定（嚴格遵守）：\n"
-        "1.【專案名稱】摘要內文約300字；\n"
-        "2.【專案名稱】摘要內文約300字；\n"
+        "1.【專案名稱（只用斜線後的名稱，首字母大寫）】摘要內文約300字；\n"
+        "2.【專案名稱（只用斜線後的名稱，首字母大寫）】摘要內文約300字；\n"
         "以此類推...\n\n"
         "寫作要求：\n"
         "- 全程使用繁體中文\n"
@@ -139,7 +139,7 @@ def send_line_message(body_text):
 
     tw_tz = timezone(timedelta(hours=8))
     today = datetime.now(tw_tz).strftime('%Y/%m/%d')
-    full_text = f"GitHub AI 熱門專案日報\n{today}\n\n{body_text}"
+    full_text = f"👾{today} GitHub LLM的世界做的今日熱門TOP5\n\n{body_text}"
 
     # LINE 單則文字訊息上限 5000 字，視情況截斷
     if len(full_text) > 4900:
