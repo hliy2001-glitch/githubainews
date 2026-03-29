@@ -1,0 +1,30 @@
+name: Daily AI GitHub Digest
+
+on:
+  schedule:
+    # 每天晚上 8 點台灣時間（UTC+8）= UTC 12:00
+    - cron: '0 12 * * *'
+  workflow_dispatch:   # 也可在 GitHub 網頁手動觸發，方便測試
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run digest script
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: python src/main.py
