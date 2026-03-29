@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from bs4 import BeautifulSoup
 import anthropic
@@ -20,6 +21,8 @@ AI_KEYWORDS = [
     'llama', 'qwen', 'deepseek', 'copilot', 'mcp', 'prompt',
     'text-to', 'speech', 'vision model', 'image generation',
 ]
+
+CARD_COLORS = ['#1a1a2e', '#16213e', '#0f3460', '#533483', '#2b2d42']
 
 # ── GitHub Trending 爬蟲 ──────────────────────────────────────────────────────
 
@@ -90,7 +93,7 @@ def is_ai_related(repo):
 def get_top_ai_repos(repos):
     return [r for r in repos if is_ai_related(r)][:TOP_N]
 
-# ── Claude 生成摘要 ───────────────────────────────────────────────────────────
+# ── Claude 生成摘要（回傳結構化 JSON）────────────────────────────────────────
 
 def generate_summary(repos):
     client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
@@ -102,8 +105,7 @@ def generate_summary(repos):
             f"{i}. 專案：{r['full_name']}\n"
             f"   說明：{r['description']}\n"
             f"   標籤：{topics_str}\n"
-            f"   今日新增星星：{r['stars_today']}\n"
-            f"   連結：{r['url']}"
+            f"   今日新增星星：{r['stars_today']}"
         )
 
     prompt = (
@@ -111,18 +113,14 @@ def generate_summary(repos):
         "請為每個專案用繁體中文撰寫大約 300 字的摘要。\n\n"
         + "\n\n".join(repo_lines)
         + "\n\n"
-        "輸出格式規定（嚴格遵守）：\n"
-        "1.【專案名稱（只用斜線後的名稱，首字母大寫）】摘要內文約300字；\n"
-        "2.【專案名稱（只用斜線後的名稱，首字母大寫）】摘要內文約300字；\n"
-        "以此類推...\n\n"
+        "請以 JSON 陣列格式輸出，結構如下（只輸出純 JSON，不要加任何說明文字或 markdown）：\n"
+        '[{"title": "專案名稱（只用斜線後的名稱，首字母大寫）", "summary": "摘要內文"}, ...]\n\n'
         "寫作要求：\n"
         "- 全程使用繁體中文\n"
         "- 解釋這個專案能解決什麼問題、帶來什麼價值\n"
         "- 說明為何今天在 GitHub 上突然爆紅或備受關注\n"
         "- 用非技術語言，讓沒有程式背景的人也能理解\n"
-        "- 每則摘要內文加入 1～2 個 emoji，語氣輕快但維持專業\n"
-        "- 每條摘要結尾加上「；」\n"
-        "- 不要加任何額外標題或說明文字，直接從 1. 開始輸出"
+        "- 每則摘要內文加入 1～2 個 emoji，語氣輕快但維持專業"
     )
 
     message = client.messages.create(
@@ -130,21 +128,97 @@ def generate_summary(repos):
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
-    return message.content[0].text.strip()
+
+    raw = message.content[0].text.strip()
+    # 移除可能的 markdown code block 包裝
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1]
+        raw = raw.rsplit("```", 1)[0].strip()
+
+    items = json.loads(raw)
+
+    # 把 url 合併進去
+    for i, item in enumerate(items):
+        item['url'] = repos[i]['url'] if i < len(repos) else ''
+
+    return items
+
+# ── 組合 Flex Message 卡片 ────────────────────────────────────────────────────
+
+def build_flex_bubble(index, title, summary, url, color):
+    return {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": color,
+            "paddingAll": "16px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"{index}.【{title}】",
+                    "weight": "bold",
+                    "color": "#ffffff",
+                    "size": "md",
+                    "wrap": True
+                }
+            ]
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "14px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": summary,
+                    "wrap": True,
+                    "size": "sm",
+                    "color": "#333333",
+                    "lineSpacing": "6px"
+                }
+            ]
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "paddingAll": "10px",
+            "contents": [
+                {
+                    "type": "button",
+                    "action": {
+                        "type": "uri",
+                        "label": "前往 GitHub →",
+                        "uri": url
+                    },
+                    "style": "primary",
+                    "color": color,
+                    "height": "sm"
+                }
+            ]
+        }
+    }
 
 # ── LINE 推播 ─────────────────────────────────────────────────────────────────
 
-def send_line_message(body_text):
+def send_line_flex(items):
     token = os.environ['LINE_CHANNEL_ACCESS_TOKEN']
     user_id = os.environ['LINE_USER_ID']
 
     tw_tz = timezone(timedelta(hours=8))
     today = datetime.now(tw_tz).strftime('%Y/%m/%d')
-    full_text = f"👾{today} GitHub LLM的世界做的今日熱門TOP5\n\n{body_text}"
+    header_text = f"👾{today} GitHub LLM的世界做的今日熱門TOP5"
 
-    # LINE 單則文字訊息上限 5000 字，視情況截斷
-    if len(full_text) > 4900:
-        full_text = full_text[:4900] + "\n\n（內容過長，已自動截斷）"
+    bubbles = [
+        build_flex_bubble(
+            index=i + 1,
+            title=item['title'],
+            summary=item['summary'],
+            url=item['url'],
+            color=CARD_COLORS[i % len(CARD_COLORS)]
+        )
+        for i, item in enumerate(items)
+    ]
 
     headers = {
         'Content-Type': 'application/json',
@@ -152,7 +226,20 @@ def send_line_message(body_text):
     }
     payload = {
         "to": user_id,
-        "messages": [{"type": "text", "text": full_text}],
+        "messages": [
+            {
+                "type": "text",
+                "text": header_text
+            },
+            {
+                "type": "flex",
+                "altText": header_text,
+                "contents": {
+                    "type": "carousel",
+                    "contents": bubbles
+                }
+            }
+        ]
     }
     resp = requests.post(LINE_PUSH_URL, headers=headers, json=payload, timeout=15)
     resp.raise_for_status()
@@ -174,11 +261,12 @@ def main():
         print(f"  [{r['stars_today']}] {r['full_name']} — {r['description'][:60]}")
 
     print("== Step 3: 呼叫 Claude 生成摘要 ==")
-    summary = generate_summary(ai_repos)
-    print(summary[:300], "...")
+    items = generate_summary(ai_repos)
+    for item in items:
+        print(f"  [{item['title']}] {item['summary'][:50]}...")
 
-    print("== Step 4: 發送 LINE 推播 ==")
-    result = send_line_message(summary)
+    print("== Step 4: 發送 LINE Flex Message ==")
+    result = send_line_flex(items)
     print("推播成功：", result)
 
 if __name__ == "__main__":
