@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import google.generativeai as genai
+import anthropic
 from datetime import datetime, timezone, timedelta
 
 # ── 設定 ──────────────────────────────────────────────────────────────────────
@@ -93,8 +93,7 @@ def get_top_ai_repos(repos):
 # ── Claude 生成摘要 ───────────────────────────────────────────────────────────
 
 def generate_summary(repos):
-    genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
 
     repo_lines = []
     for i, r in enumerate(repos, 1):
@@ -125,8 +124,12 @@ def generate_summary(repos):
         "- 不要加任何額外標題或說明文字，直接從 1. 開始輸出"
     )
 
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.content[0].text.strip()
 
 # ── LINE 推播 ─────────────────────────────────────────────────────────────────
 
