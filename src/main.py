@@ -207,7 +207,7 @@ def send_line_flex(items):
 
     tw_tz = timezone(timedelta(hours=8))
     today = datetime.now(tw_tz).strftime('%Y/%m/%d')
-    header_text = f"👾{today} GitHub LLM的世界做的今日熱門TOP5"
+    header_text = f"👾{today} GitHub LLM應用相關今日熱門TOP5"
 
     bubbles = [
         build_flex_bubble(
