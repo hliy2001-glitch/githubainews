@@ -110,7 +110,7 @@ def generate_summary(repos):
 
     prompt = (
         "以下是今日 GitHub 上最熱門的 AI / LLM 相關開源專案資訊，"
-        "請為每個專案用繁體中文撰寫大約 300 字的摘要。\n\n"
+        "請為每個專案用繁體中文撰寫大約 200 字的摘要。\n\n"
         + "\n\n".join(repo_lines)
         + "\n\n"
         "請以 JSON 陣列格式輸出，結構如下（只輸出純 JSON，不要加任何說明文字或 markdown）：\n"
