@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 # ── 設定 ──────────────────────────────────────────────────────────────────────
 
 GITHUB_TRENDING_URL = "https://github.com/trending"
-LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push"
+LINE_BROADCAST_URL = "https://api.line.me/v2/bot/message/broadcast"
 TOP_N = 5
 
 AI_KEYWORDS = [
@@ -205,7 +205,6 @@ def build_flex_bubble(index, title, summary, url, color):
 
 def send_line_flex(items):
     token = os.environ['LINE_CHANNEL_ACCESS_TOKEN']
-    user_id = os.environ['LINE_USER_ID']
 
     tw_tz = timezone(timedelta(hours=8))
     today = datetime.now(tw_tz).strftime('%Y/%m/%d')
@@ -227,7 +226,6 @@ def send_line_flex(items):
         'Authorization': f'Bearer {token}',
     }
     payload = {
-        "to": user_id,
         "messages": [
             {
                 "type": "text",
@@ -243,7 +241,7 @@ def send_line_flex(items):
             }
         ]
     }
-    resp = requests.post(LINE_PUSH_URL, headers=headers, json=payload, timeout=15)
+    resp = requests.post(LINE_BROADCAST_URL, headers=headers, json=payload, timeout=15)
     resp.raise_for_status()
     return resp.json()
 
