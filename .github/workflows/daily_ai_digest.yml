@@ -2,8 +2,8 @@ name: Daily AI GitHub Digest
 
 on:
   schedule:
-    # 每 2 天下午 5 點台灣時間（UTC+8）= UTC 09:00（偶數日執行）
-    - cron: '0 9 */2 * *'
+    # 每天下午 5 點台灣時間（UTC+8）= UTC 09:00
+    - cron: '0 9 * * *'
   workflow_dispatch:   # 也可在 GitHub 網頁手動觸發，方便測試
 
 jobs:
